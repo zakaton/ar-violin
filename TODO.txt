@@ -1,7 +1,11 @@
-get pitch offset
-pitch to position
-violin model
-align model
-pitch detection https://glitch.com/edit/#!/pink-trombone-editor?path=index.html%3A2113%3A39
-tune
-play sequence
+update position/rotation
+save/load position/rotation
+
+text displaying volume/pitch/note/offset
+
+text displaying estimated string/fingering
+knob indicators for tuning
+segments for strings
+cross segments for fingering
+
+https://glitch.com/edit/#!/pink-trombone-editor?path=index.html%3A2113%3A39

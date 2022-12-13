@@ -10,30 +10,47 @@
     <a-scene
       shadow="type: pcfsoft"
       renderer="colorManagement:true; toneMapping:ACESFilmic;"
-      violin="side: left; leftHand: #leftHandControls; rightHand: #rightHandControls; "
+      violin="side: left; leftHand: #leftHandControls; rightHand: #rightHandControls; modeText: #modeText; violin: #violin"
     >
       <a-assets>
         <a-asset-item
           id="violinModel"
-          src="https://cdn.glitch.global/c7c249a3-eab0-45bc-8eaa-b318f59272cf/violin-lowpoly.glb?v=1670696579270"
+          src="https://cdn.glitch.global/c7c249a3-eab0-45bc-8eaa-b318f59272cf/violin-model.glb?v=1670709370414"
         ></a-asset-item>
       </a-assets>
 
-      <a-camera position="0 1.6 0" id="camera"></a-camera>
+      <a-camera position="0 1.6 0" id="camera">
+        <a-entity position="0 0 -0.4" id="hud">
+          <a-text
+            id="modeText"
+            value=""
+            color="black"
+            material="shader: flat;"
+            scale="0.4 0.4 0.4"
+            position="0 0.2 0"
+            align="center"
+          ></a-text>
+        </a-entity>
+      </a-camera>
+
+      <a-entity gltf-model="#violinModel" position="0 1.2 -0.5">
+          <a-cylinder color="red" radius="0.005"></a-cylinder>
+      </a-entity>
 
       <a-entity
         id="leftHandControls"
         oculus-touch-controls="hand: left; model: false;"
       >
-        <a-entity gltf-model="#violinModel"></a-entity>
+        <a-entity id="violin" gltf-model="#violinModel" visible="false"></a-entity>
       </a-entity>
       <a-entity
         id="rightHandControls"
         oculus-touch-controls="hand: right; model: false;"
       ></a-entity>
+      
     </a-scene>
   </body>
-  
+
   <script>
     const audioContext = Tone.context.rawContext._nativeAudioContext;
     audioContext.addEventListener("statechange", () => {
@@ -46,7 +63,7 @@
     });
     audioContext.dispatchEvent(new Event("statechange"));
   </script>
-  
+
   <script type="module">
     // https://github.com/ianprime0509/pitchy
     // https://ianjohnson.dev/pitchy/
