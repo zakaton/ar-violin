@@ -10,7 +10,7 @@
     <a-scene
       shadow="type: pcfsoft"
       renderer="colorManagement:true; toneMapping:ACESFilmic;"
-      violin="side: left; leftHand: #leftHandControls; rightHand: #rightHandControls; modeText: #modeText; violin: #violin"
+      violin="side: left; leftHand: #leftHandControls; rightHand: #rightHandControls; modeText: #modeText; pitchText: #pitchText; violin: #violin"
     >
       <a-assets>
         <a-asset-item
@@ -27,27 +27,40 @@
             color="black"
             material="shader: flat;"
             scale="0.4 0.4 0.4"
-            position="0 0.2 0"
-            align="center"
+            position="-0.5 0.2 0"
+            align="left"
+          ></a-text>
+
+          <a-text
+            id="pitchText"
+            value=""
+            color="black"
+            material="shader: flat;"
+            scale="0.4 0.4 0.4"
+            position="0.5 0.2 0"
+            align="right"
           ></a-text>
         </a-entity>
       </a-camera>
 
       <a-entity gltf-model="#violinModel" position="0 1.2 -0.5">
-          <a-cylinder color="red" radius="0.005"></a-cylinder>
+        <a-cylinder color="red" radius="0.005"></a-cylinder>
       </a-entity>
 
       <a-entity
         id="leftHandControls"
         oculus-touch-controls="hand: left; model: false;"
       >
-        <a-entity id="violin" gltf-model="#violinModel" visible="false"></a-entity>
+        <a-entity
+          id="violin"
+          gltf-model="#violinModel"
+          visible="false"
+        ></a-entity>
       </a-entity>
       <a-entity
         id="rightHandControls"
         oculus-touch-controls="hand: right; model: false;"
       ></a-entity>
-      
     </a-scene>
   </body>
 

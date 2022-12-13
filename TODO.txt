@@ -1,8 +1,8 @@
-update position/rotation
-save/load position/rotation
+test position/rotation
 
 text displaying volume/pitch/note/offset
 
+frequency to fingerings
 text displaying estimated string/fingering
 knob indicators for tuning
 segments for strings

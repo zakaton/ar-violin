@@ -8,7 +8,8 @@ AFRAME.registerSystem("violin", {
     interval: { type: "number", default: 40 },
     clarityThreshold: { type: "number", default: 0.4 },
     volumeThreshold: { type: "number", default: 20 },
-    violin: {type: "selector"}
+    violin: {type: "selector"},
+    pitchText: { type: "selector" },
   },
   init: function () {
     window.violin = this;
@@ -53,6 +54,7 @@ AFRAME.registerSystem("violin", {
       1000
     );
     this.loadRotationFromLocalStorage();
+    this.data.violin.object3D.rotation.reorder("YXZ")
 
     this.frequency = new Tone.Frequency();
 
@@ -66,7 +68,7 @@ AFRAME.registerSystem("violin", {
 
     this.modes = ["position", "pitch/roll", "tune", "fingers", "song"];
     this.modeIndex = 0;
-    this.onModeIndexUpdate();
+    this.onModeIndexUpdate();    
   },
   updateMode: function (index, isOffset = true) {
     let newModeIndex = this.modeIndex;
@@ -146,29 +148,44 @@ AFRAME.registerSystem("violin", {
   onThumbstickMoved: function (event) {
     let { x, y } = event.detail;
 
+    // FIX
     switch (this.mode) {
       case "position":
-        // FILL - update position.xz
-        // FILL - throttle function to save to localstorage
+        this.data.violin.object3D.position.x += x * 0.01;
+        this.data.violin.object3D.position.z += y * 0.01;
+        this.savePositionToLocalStorage();
         break;
       case "pitch/roll":
-        // FILL - update rotation.xy
-        // FILL - throttle function to save to localstorage
+        this.data.violin.object3D.rotation.x += x * 0.01;
+        this.data.violin.object3D.rotation.y += y * 0.01;
+        this.saveRotationToLocalStorage();
         break;
     }
   },
 
   savePositionToLocalStorage: function () {
-    // FILL
+    localStorage.violinPosition = JSON.stringify(this.data.violin.object3D.position.toArray())
+    console.log("saved position to localstorage")
   },
   loadPositionFromLocalStorage: function () {
-    // FILL
+    let violinPosition = localStorage.violinPosition;
+    if (violinPosition) {
+      violinPosition = JSON.parse(violinPosition);
+      this.data.violin.object3D.position.fromArray(violinPosition)
+    }
+    console.log("loaded position from localstorage")
   },
   saveRotationToLocalStorage: function () {
-    // FILL
+    localStorage.violinRotation = JSON.stringify(this.data.violin.object3D.rotation.toArray())
+    console.log("saved rotation to localstorage")
   },
   loadRotationFromLocalStorage: function () {
-    // FILL
+    let violinRotation = localStorage.violinRotation;
+    if (violinRotation) {
+      violinRotation = JSON.parse(violinRotation);
+      this.data.violin.object3D.rotation.fromArray(violinRotation)
+    }
+    console.log("loaded rotation from localstorage")
   },
 
   enableMicrophone: async function () {
@@ -200,7 +217,10 @@ AFRAME.registerSystem("violin", {
   getPitchAndVolume: function () {
     const pitch = this.getPitch();
     const volume = this.getVolume();
-    // FILL
+    
+    if (pitch) {
+      this.data.pitchText.setAttribute("value", Math.round(pitch))
+    }
   },
   getPitch: function () {
     this.analyserNode.getFloatTimeDomainData(this.pitchDetectorInput);
