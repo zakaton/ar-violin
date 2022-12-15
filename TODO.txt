@@ -1,11 +1,6 @@
-test position/rotation
-
-text displaying volume/pitch/note/offset
-
-frequency to fingerings
-text displaying estimated string/fingering
-knob indicators for tuning
-segments for strings
-cross segments for fingering
-
-https://glitch.com/edit/#!/pink-trombone-editor?path=index.html%3A2113%3A39
+positioning
+test tuning
+  separate text for each type (vertical)
+test fingering
+  save fret positions
+test song
