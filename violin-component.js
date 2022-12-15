@@ -6,10 +6,14 @@ AFRAME.registerSystem("violin", {
     side: { default: "left", oneOf: ["left", "right"] },
     modeText: { type: "selector" },
     pitchInterval: { type: "number", default: 40 },
-    clarityThreshold: { type: "number", default: 0.4 },
+    clarityThreshold: { type: "number", default: 0.95 },
     volumeThreshold: { type: "number", default: 20 },
     violin: { type: "selector" },
     pitchText: { type: "selector" },
+    offsetText: { type: "selector" },
+    noteText: { type: "selector" },
+    offsetThreshold: { type: "number", default: 0.05 },
+    pitchThreshold: { type: "number", default: 30 },
   },
   init: function () {
     window.violin = this;
@@ -87,14 +91,30 @@ AFRAME.registerSystem("violin", {
       this.data.pitchInterval
     );
 
-    this.modes = ["position", "tune", "fingers", "song"];
-    this.modeIndex = 0;
-    this.onModeIndexUpdate();
-
     this.clearPitchText = AFRAME.utils.debounce(
       this.clearPitchText.bind(this),
       1000
     );
+    this.clearNoteText = AFRAME.utils.debounce(
+      this.clearNoteText.bind(this),
+      1000
+    );
+    this.clearOffsetText = AFRAME.utils.debounce(
+      this.clearOffsetText.bind(this),
+      1000
+    );
+
+    this.stringEntities = this.data.violin.querySelectorAll("[data-string]");
+    this.fingerEntities = this.data.violin.querySelectorAll("[data-finger]");
+    this.fretEntities = this.data.violin.querySelectorAll("[data-fret]");
+    this.knobEntities = this.data.violin.querySelectorAll("[data-knob]");
+    
+    this.modes = ["position", "tune", "fingers", "song"];
+    this.modeIndex = 0;
+    this.onModeIndexUpdate();
+    
+    this.songNotes = []; // FILL
+    this.song = this.songNotes.map(note => new Tone.Frequency(note))
   },
   updateMode: function (index, isOffset = true) {
     let newModeIndex = this.modeIndex;
@@ -141,6 +161,9 @@ AFRAME.registerSystem("violin", {
         this.enablePitchDetector();
         break;
     }
+    
+    this.clearStrings();
+    this.clearKnobs();
   },
 
   tick: function () {
@@ -186,13 +209,20 @@ AFRAME.registerSystem("violin", {
   updateViolinPositionAndRotation: function () {
     if (this._resetPositionFlag) {
       this.initialControllerPosition = this.otherHand.object3D.position.clone();
-      this.initialControllerQuaternion =
-        this.otherHand.object3D.quaternion.clone().invert();
+      this.initialControllerQuaternion = this.otherHand.object3D.quaternion
+        .clone()
+        .invert();
       this._resetPositionFlag = false;
     } else {
-      this.data.violin.object3D.position.subVectors(this.otherHand.object3D.position, this.initialControllerPosition);
-      this.data.violin.object3D.quaternion.multiplyQuaternions(this.otherHand.object3D.quaternion, this.initialControllerQuaternion);
-      
+      this.data.violin.object3D.position.subVectors(
+        this.otherHand.object3D.position,
+        this.initialControllerPosition
+      );
+      this.data.violin.object3D.quaternion.multiplyQuaternions(
+        this.otherHand.object3D.quaternion,
+        this.initialControllerQuaternion
+      );
+
       this.savePositionToLocalStorage();
       this.saveRotationToLocalStorage();
     }
@@ -254,10 +284,8 @@ AFRAME.registerSystem("violin", {
   },
 
   getPitchAndVolume: function () {
-    let pitch, volume;
-
-    //const pitch = this.getPitch();
-    //const volume = this.getVolume();
+    let pitch, volume, positions;
+    let pitchValue, noteValue, offsetValue, offsetColor;
 
     let value;
     switch (this.mode) {
@@ -267,42 +295,150 @@ AFRAME.registerSystem("violin", {
       case "fingers":
       case "song":
         pitch = this.getPitch();
-        let note, offset;
-        switch (this.mode) {
-          case "tune":
-            note = this.pitchToNote(pitch);
-            offset = this.getPitchOffset(pitch);
-            value = `${note} ${Math.round(pitch)}Hz (${
-              offset > 0 ? "+" : "-"
-            }${Math.round(Math.abs(offset) * 100)}%)`;
-            break;
-          case "fingers":
-            const positions = this.pitchToPositions(pitch);
-            // FILL
-            break;
-          case "song":
-            note = this.pitchToNote(pitch);
-            value = note;
-            break;
+        if (pitch) {
+          console.log("pitch", pitch);
+          let note, offset;
+          switch (this.mode) {
+            case "tune":
+              pitchValue = `${Math.round(pitch)}Hz`;
+
+              offset = this.getPitchOffset(pitch);
+              offsetValue = `${offset > 0 ? "+" : "-"}${Math.round(
+                Math.abs(offset) * 100
+              )}%`;
+              if (Math.abs(offset) > this.data.offsetThreshold) {
+                offsetColor = offset > 0 ? "orange" : "red";
+              } else {
+                offsetColor = "green";
+              }
+
+              note = this.pitchToNote(pitch);
+              noteValue = note;
+
+              const closestOpenStringIndex =
+                this.getClosestOpenStringIndex(pitch);
+              
+              this.highlightString(closestOpenStringIndex)
+              this.highlightKnob(closestOpenStringIndex, offset)
+
+              break;
+            case "fingers":
+              positions = this.pitchToPositions(pitch);
+              break;
+            case "song":
+              note = this.pitchToNote(pitch);
+              noteValue = note;
+              break;
+          }
         }
         break;
     }
 
+    this.setPitchText(pitchValue);
+    this.setNoteText(noteValue);
+    this.setOffsetText(offsetValue, offsetColor);
+  },
+  
+  highlightString: function(index) {
+    this.stringEntities.forEach((stringEntity, _index) => {
+      stringEntity.object3D.visible = index === _index
+    })
+  },
+  clearStrings: function() {
+    this.highlightString(-1)
+  },
+  
+  highlightKnob: function(index, offset = 1) {
+    this.knobEntities.forEach((knobEntity, _index) => {
+      knobEntity.object3D.visible = index === _index
+      knobEntity.object3D.scale.x = Math.sign(offset)
+    })
+  },
+  clearKnobs: function() {
+    this.highlightKnob(-1)
+  },
+
+  getClosestOpenStringIndex: function (pitch) {
+    let closestOpenString;
+    let closestFrequency;
+    let closestIndex = -1;
+
+    this.stringFrequencies.forEach((stringFingerings, index) => {
+      const openString = stringFingerings[0];
+      const openStringFrequency = openString.toFrequency();
+      if (
+        closestIndex < 0 ||
+        Math.abs(pitch - openStringFrequency) <
+          Math.abs(pitch - closestFrequency)
+      ) {
+        closestIndex = index;
+        closestOpenString = openString;
+        closestFrequency = openStringFrequency;
+      }
+    });
+
+    return closestIndex;
+  },
+
+  setText: function (text, value, color) {
     if (value) {
-      this.data.pitchText.setAttribute("value", value);
+      text.setAttribute("value", value);
+      text.parentEl.object3D.visible = true;
+      if (color) {
+        text.setAttribute("color", color);
+      }
+    }
+  },
+  clearText: function (text) {
+    text.setAttribute("value", "");
+    text.parentEl.object3D.visible = false;
+  },
+
+  setPitchText: function (value) {
+    this.setText(this.data.pitchText, value);
+    if (value) {
       this.clearPitchText();
     }
   },
-  clearPitchText: function () {
-    this.data.pitchText.setAttribute("value", "");
+  setNoteText: function (value) {
+    this.setText(this.data.noteText, value);
+    if (value) {
+      this.clearNoteText();
+    }
   },
+  setOffsetText: function (value, color) {
+    this.setText(this.data.offsetText, value, color);
+    if (value) {
+      this.clearOffsetText();
+    }
+  },
+
+  clearPitchText: function () {
+    this.clearText(this.data.pitchText);
+  },
+  clearNoteText: function () {
+    this.clearText(this.data.noteText);
+  },
+  clearOffsetText: function () {
+    this.clearText(this.data.offsetText);
+  },
+  clearAllText: function () {
+    this.clearPitchText();
+    this.clearNoteText();
+    this.clearOffsetText();
+  },
+
   getPitch: function () {
     this.analyserNode.getFloatTimeDomainData(this.pitchDetectorInput);
     const [pitch, clarity] = this.pitchDetector.findPitch(
       this.pitchDetectorInput,
       this.audioContext.sampleRate
     );
-    if (clarity > this.data.clarityThreshold) {
+
+    if (
+      clarity > this.data.clarityThreshold &&
+      pitch > this.data.pitchThreshold
+    ) {
       return pitch;
     }
   },
@@ -332,6 +468,7 @@ AFRAME.registerSystem("violin", {
       this.isPitchDetectorEnabled = false;
       console.log("disabled pitch detector");
     }
+    this.clearAllText();
   },
 
   getPitchOffset: function (pitch) {

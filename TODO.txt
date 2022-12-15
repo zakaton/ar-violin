@@ -1,6 +1,11 @@
-positioning
 test tuning
-  separate text for each type (vertical)
+  test direction
 test fingering
-  save fret positions
+  show all frets
+  highlight one of the frets
+  move highlighted fret with thumbstick
+  save fret positions to localStorage
+  hide frets when going away
 test song
+  pitchToClosestFingering
+  setSphereFromPitch (color previous sphere then hide it)
