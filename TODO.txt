@@ -1,11 +1,7 @@
 test tuning
   test direction
 test fingering
-  show all frets
-  highlight one of the frets
-  move highlighted fret with thumbstick
-  save fret positions to localStorage
-  hide frets when going away
+  display how off the fingering is
 test song
   pitchToClosestFingering
   setSphereFromPitch (color previous sphere then hide it)
