@@ -1,5 +1,4 @@
 test positioning
-  offset positioning/rotation
 test tuning
   fix text issue
 test fingering

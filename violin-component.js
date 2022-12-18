@@ -70,7 +70,7 @@ AFRAME.registerSystem("violin", {
     );
     this.otherHand.addEventListener("triggerup", this.onTriggerUp.bind(this));
 
-    this.violinModelEntity = this.data.violin.querySelector("[gltf-model]")
+    this.violinModelEntity = this.data.violin.querySelector("[gltf-model]");
     this.violinModelEntity.addEventListener("loaded", (event) => {
       this.savePositionToLocalStorage = AFRAME.utils.debounce(
         this.savePositionToLocalStorage.bind(this),
@@ -317,31 +317,54 @@ AFRAME.registerSystem("violin", {
 
   updateViolinPositionAndRotation: function () {
     if (this._resetPositionFlag) {
-      this.initialControllerPosition = this.otherHand.object3D.position.clone();
-      this.initialControllerQuaternion = this.otherHand.object3D.quaternion
-        .clone()
-        .invert();
+      this.initialOtherHandPosition = this.otherHand.object3D.position.clone();
+      this.initialOtherHandQuaternionInverse =
+        this.otherHand.object3D.quaternion.clone().invert();
+
+      this.initialViolinPosition = this.data.violin.object3D.position.clone();
+
+      if (this.otherHandQuaternionDifference) {
+        if (this.previousOtherHandQuaternionDifference) {
+          this.previousOtherHandQuaternionDifference.multiply(
+            this.otherHandQuaternionDifference
+          );
+        } else {
+          this.previousOtherHandQuaternionDifference =
+            this.otherHandQuaternionDifference.clone();
+        }
+      }
+
       this._resetPositionFlag = false;
     } else {
-      this.handQuaternionInverse = this.handQuaternionInverse || new THREE.Quaternion();
+      this.handQuaternionInverse =
+        this.handQuaternionInverse || new THREE.Quaternion();
       this.handQuaternionInverse.copy(this.hand.object3D.quaternion).invert();
-      
-      
+
       this.data.violin.object3D.position.subVectors(
         this.otherHand.object3D.position,
-        this.initialControllerPosition
+        this.initialOtherHandPosition
       );
-      this.data.violin.object3D.position.applyQuaternion(this.handQuaternionInverse)
-      
-      
-      this.data.violin.object3D.quaternion.multiplyQuaternions(
-        this.otherHand.object3D.quaternion,
-        this.initialControllerQuaternion
+      this.data.violin.object3D.position.applyQuaternion(
+        this.handQuaternionInverse
       );
-      this.data.violin.object3D.quaternion.premultiply(this.handQuaternionInverse)
+      this.data.violin.object3D.position.add(this.initialViolinPosition);
 
-      this.savePositionToLocalStorage();
-      this.saveRotationToLocalStorage();
+      this.otherHandQuaternionDifference =
+        this.otherHandQuaternionDifference || new THREE.Quaternion();
+      this.otherHandQuaternionDifference.multiplyQuaternions(
+        this.initialOtherHandQuaternionInverse,
+        this.otherHand.object3D.quaternion
+      );
+      this.data.violin.object3D.quaternion.multiplyQuaternions(
+        this.handQuaternionInverse,
+        this.otherHandQuaternionDifference
+      );
+
+      if (this.previousOtherHandQuaternionDifference) {
+        this.data.violin.object3D.quaternion.multiply(
+          this.previousOtherHandQuaternionDifference
+        );
+      }
     }
   },
 
@@ -349,7 +372,7 @@ AFRAME.registerSystem("violin", {
     localStorage.violinPosition = JSON.stringify(
       this.data.violin.object3D.position.toArray()
     );
-    console.log("saved position to localstorage");
+    // console.log("saved position to localstorage");
   },
   loadPositionFromLocalStorage: function () {
     let violinPosition = localStorage.violinPosition;
@@ -363,7 +386,7 @@ AFRAME.registerSystem("violin", {
     localStorage.violinRotation = JSON.stringify(
       this.data.violin.object3D.quaternion.toArray()
     );
-    console.log("saved rotation to localstorage");
+    // console.log("saved rotation to localstorage");
   },
   loadRotationFromLocalStorage: function () {
     let violinRotation = localStorage.violinRotation;
@@ -446,7 +469,7 @@ AFRAME.registerSystem("violin", {
                 } else {
                   offsetColor = "green";
                 }
-                
+
                 this.highlightString(closestStringIndex);
                 if (this.mode == "tune") {
                   this.highlightKnob(closestStringIndex, offset);
@@ -477,10 +500,10 @@ AFRAME.registerSystem("violin", {
       stringEntity.object3D.visible = index === _index;
     });
   },
-  showStrings: function() {
+  showStrings: function () {
     this.stringEntities.forEach((stringEntity) => {
       //stringEntity.object3D.visible = true
-      stringEntity.setAttribute("visible", true)
+      stringEntity.setAttribute("visible", true);
     });
   },
   clearStrings: function () {
@@ -561,19 +584,19 @@ AFRAME.registerSystem("violin", {
   setText: function (text, value, color) {
     if (value) {
       text.setAttribute("value", value);
-      text.parentEl.setAttribute("visible", "true")
+      text.parentEl.setAttribute("visible", "true");
       if (color) {
         text.setAttribute("color", color);
       }
     }
   },
   clearText: function (text) {
-    text.setAttribute("value", "");
-    text.parentEl.setAttribute("visible", "false")
+    //text.setAttribute("value", "");
+    text.parentEl.setAttribute("visible", "false");
   },
 
   setPitchText: function (value) {
-      this.setText(this.data.pitchText, value);
+    this.setText(this.data.pitchText, value);
     if (value) {
       this.clearPitchText();
     }
@@ -585,7 +608,7 @@ AFRAME.registerSystem("violin", {
     }
   },
   setOffsetText: function (value, color) {
-      this.setText(this.data.offsetText, value, color);
+    this.setText(this.data.offsetText, value, color);
     if (value) {
       this.clearOffsetText();
     }
@@ -687,7 +710,11 @@ AFRAME.registerSystem("violin", {
     if (this.songNoteIndex != newSongNoteIndex) {
       this.songNoteIndex = newSongNoteIndex;
       this.highlightedSongNote = this.songNotes[this.songNoteIndex];
-      console.log("song note index", this.songNoteIndex, this.highlightedSongNote.toNote());
+      console.log(
+        "song note index",
+        this.songNoteIndex,
+        this.highlightedSongNote.toNote()
+      );
       this.highlightSongNote();
     }
   },
@@ -701,7 +728,9 @@ AFRAME.registerSystem("violin", {
         const visible = index == stringIndex;
         if (visible) {
           fingerEntity.object3D.position.y =
-            fingerIndex == 0? 0: this.fretEntities[fingerIndex-1].object3D.position.y;
+            fingerIndex == 0
+              ? 0
+              : this.fretEntities[fingerIndex - 1].object3D.position.y;
         }
         fingerEntity.object3D.visible = visible;
       });
@@ -739,5 +768,12 @@ AFRAME.registerSystem("violin", {
   },
   onTriggerUp: function () {
     this.isTriggerDown = false;
+
+    switch (this.mode) {
+      case "position":
+        this.savePositionToLocalStorage();
+        this.saveRotationToLocalStorage();
+        break;
+    }
   },
 });
