@@ -246,7 +246,7 @@ AFRAME.registerSystem("violin", {
       case "song":
         this.enablePitchDetector();
         this.hideFrets();
-        this.updateHighlightedSongNote(0);
+        this.updateHighlightedSongNote(0, false, true);
         this.clearStrings();
         break;
     }
@@ -309,7 +309,7 @@ AFRAME.registerSystem("violin", {
     if (violinFretPositions) {
       violinFretPositions = JSON.parse(violinFretPositions);
       this.fretEntities.forEach((fretEntity, index) => {
-        fretEntity.object3D.position.y = violinFretPositions[index];
+        fretEntity.object3D.position.y = Number(violinFretPositions[index]);
       });
     }
     console.log("loaded fret positions from localstorage");
@@ -482,6 +482,7 @@ AFRAME.registerSystem("violin", {
               noteValue = note;
 
               if (note == this.highlightedSongNote.toNote()) {
+                console.log("played right note")
                 this.updateHighlightedSongNote(1, true);
               }
               break;
@@ -502,7 +503,7 @@ AFRAME.registerSystem("violin", {
   },
   showStrings: function () {
     this.stringEntities.forEach((stringEntity) => {
-      //stringEntity.object3D.visible = true
+      stringEntity.object3D.visible = true
       stringEntity.setAttribute("visible", true);
     });
   },
@@ -690,7 +691,7 @@ AFRAME.registerSystem("violin", {
     return this.frequency.toMidi();
   },
 
-  updateHighlightedSongNote: function (index, isOffset = false) {
+  updateHighlightedSongNote: function (index, isOffset = false, override = false) {
     let newSongNoteIndex = this.songNoteIndex;
     if (isOffset) {
       newSongNoteIndex += index;
@@ -707,7 +708,7 @@ AFRAME.registerSystem("violin", {
       this.songNotes.length - 1
     );
 
-    if (this.songNoteIndex != newSongNoteIndex) {
+    if (this.songNoteIndex != newSongNoteIndex || override) {
       this.songNoteIndex = newSongNoteIndex;
       this.highlightedSongNote = this.songNotes[this.songNoteIndex];
       console.log(
@@ -733,6 +734,7 @@ AFRAME.registerSystem("violin", {
               : this.fretEntities[fingerIndex - 1].object3D.position.y;
         }
         fingerEntity.object3D.visible = visible;
+        this.highlightString(stringIndex)
       });
     } else {
       console.log(

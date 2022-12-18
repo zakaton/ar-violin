@@ -1,5 +1,4 @@
 test positioning
 test tuning
-  fix text issue
 test fingering
 test song
