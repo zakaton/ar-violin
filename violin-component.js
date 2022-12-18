@@ -12,7 +12,7 @@ AFRAME.registerSystem("violin", {
     pitchText: { type: "selector" },
     offsetText: { type: "selector" },
     noteText: { type: "selector" },
-    offsetThreshold: { type: "number", default: 0.05 },
+    offsetThreshold: { type: "number", default: 0.1 },
     pitchThreshold: { type: "number", default: 30 },
   },
   init: function () {
@@ -40,6 +40,9 @@ AFRAME.registerSystem("violin", {
         this.noteToFingerings[note].push({ stringIndex, fingerIndex });
       });
     });
+    Object.values(this.noteToFingerings).forEach((noteFingerings) =>
+      noteFingerings.reverse()
+    );
 
     this.otherSide = this.data.side == "left" ? "right" : "left";
 
@@ -67,7 +70,8 @@ AFRAME.registerSystem("violin", {
     );
     this.otherHand.addEventListener("triggerup", this.onTriggerUp.bind(this));
 
-    this.data.violin.addEventListener("loaded", (event) => {
+    this.violinModelEntity = this.data.violin.querySelector("[gltf-model]")
+    this.violinModelEntity.addEventListener("loaded", (event) => {
       this.savePositionToLocalStorage = AFRAME.utils.debounce(
         this.savePositionToLocalStorage.bind(this),
         1000
@@ -125,12 +129,68 @@ AFRAME.registerSystem("violin", {
 
     this.updateHighlightedFretIndex(0, false);
 
+    this.fingerStringToFingerIndex = {
+      0: 0,
+      L1: 1,
+      1: 2,
+      L2: 3,
+      2: 4,
+      3: 5,
+      H3: 6,
+      4: 7,
+    };
+    // https://www.stringclub.com/learn-play/howls-moving-castle/
+    this.songFingerings = [
+      { string: 1, finger: 0 },
+      { string: 1, finger: 3 },
+      { string: 2, finger: "L1" },
+      { string: 2, finger: 3 },
+      { string: 2, finger: 3 },
+      { string: 2, finger: "L2" },
+      { string: 2, finger: "L1" },
+      { string: 2, finger: 0 },
+      { string: 2, finger: "L1" },
+
+      { string: 1, finger: 3 },
+      { string: 2, finger: "L1" },
+      { string: 2, finger: 3 },
+      { string: 3, finger: "L2" },
+      { string: 3, finger: "L2" },
+      { string: 3, finger: "L2" },
+      { string: 3, finger: 3 },
+      { string: 3, finger: "L1" },
+      { string: 2, finger: "H3" },
+      { string: 3, finger: "L1" },
+
+      { string: 2, finger: 0 },
+      { string: 2, finger: 3 },
+      { string: 3, finger: "L1" },
+      { string: 3, finger: 3 },
+      { string: 3, finger: "L2" },
+      { string: 3, finger: "L1" },
+      { string: 3, finger: 0 },
+      { string: 3, finger: "L1" },
+      { string: 3, finger: "L2" },
+      { string: 3, finger: "L1" },
+      { string: 2, finger: 4 },
+
+      { string: 2, finger: 3 },
+      { string: 2, finger: "L2" },
+      { string: 2, finger: "L1" },
+      { string: 2, finger: "L2" },
+      { string: 2, finger: 3 },
+      { string: 2, finger: "L2" },
+      { string: 1, finger: 3 },
+      { string: 2, finger: 0 },
+    ];
+    this.songNotes = this.songFingerings.map(({ string, finger }) => {
+      const fingerIndex = this.fingerStringToFingerIndex[finger];
+      return this.stringFrequencies[string][fingerIndex];
+    });
+
     this.modes = ["position", "tune", "fingers", "song"];
     this.modeIndex = 0;
     this.onModeIndexUpdate();
-
-    this.songNotes = []; // FILL
-    this.song = this.songNotes.map((note) => new Tone.Frequency(note));
   },
   updateMode: function (index, isOffset = true) {
     let newModeIndex = this.modeIndex;
@@ -167,23 +227,30 @@ AFRAME.registerSystem("violin", {
       case "position":
         this.disablePitchDetector();
         this.hideFrets();
+        this.clearSongNotes();
+        this.showStrings();
         break;
       case "tune":
         this.enablePitchDetector();
         this.hideFrets();
+        this.clearSongNotes();
+        this.clearStrings();
         break;
       case "fingers":
         this.enablePitchDetector();
         this.showFrets();
         this.highlightFret(0);
+        this.clearSongNotes();
+        this.clearStrings();
         break;
       case "song":
         this.enablePitchDetector();
         this.hideFrets();
+        this.updateHighlightedSongNote(0);
+        this.clearStrings();
         break;
     }
 
-    this.clearStrings();
     this.clearKnobs();
   },
 
@@ -223,7 +290,7 @@ AFRAME.registerSystem("violin", {
 
     switch (this.mode) {
       case "fingers":
-        this.highlightedFret.object3D.position.y += -y * 0.01;
+        this.highlightedFret.object3D.position.y += -y * 0.001;
         this.saveFretPositionsToLocalStorage();
         break;
       default:
@@ -256,14 +323,22 @@ AFRAME.registerSystem("violin", {
         .invert();
       this._resetPositionFlag = false;
     } else {
+      this.handQuaternionInverse = this.handQuaternionInverse || new THREE.Quaternion();
+      this.handQuaternionInverse.copy(this.hand.object3D.quaternion).invert();
+      
+      
       this.data.violin.object3D.position.subVectors(
         this.otherHand.object3D.position,
         this.initialControllerPosition
       );
+      this.data.violin.object3D.position.applyQuaternion(this.handQuaternionInverse)
+      
+      
       this.data.violin.object3D.quaternion.multiplyQuaternions(
         this.otherHand.object3D.quaternion,
         this.initialControllerQuaternion
       );
+      this.data.violin.object3D.quaternion.premultiply(this.handQuaternionInverse)
 
       this.savePositionToLocalStorage();
       this.saveRotationToLocalStorage();
@@ -338,7 +413,7 @@ AFRAME.registerSystem("violin", {
       case "song":
         pitch = this.getPitch();
         if (pitch) {
-          console.log("pitch", pitch);
+          //console.log("pitch", pitch);
           let note, offset;
           switch (this.mode) {
             case "tune":
@@ -367,11 +442,11 @@ AFRAME.registerSystem("violin", {
                   Math.abs(offset) * 100
                 )}%`;
                 if (Math.abs(offset) > this.data.offsetThreshold) {
-                  offsetColor = offset > 0 ? "orange" : "red";
+                  offsetColor = offset > 0 ? "red" : "blue";
                 } else {
                   offsetColor = "green";
                 }
-
+                
                 this.highlightString(closestStringIndex);
                 if (this.mode == "tune") {
                   this.highlightKnob(closestStringIndex, offset);
@@ -383,8 +458,9 @@ AFRAME.registerSystem("violin", {
               note = this.pitchToNote(pitch);
               noteValue = note;
 
-              // FILL - how close is the note to the current note?
-              // if the right note, go to the next note
+              if (note == this.highlightedSongNote.toNote()) {
+                this.updateHighlightedSongNote(1, true);
+              }
               break;
           }
         }
@@ -399,6 +475,12 @@ AFRAME.registerSystem("violin", {
   highlightString: function (index) {
     this.stringEntities.forEach((stringEntity, _index) => {
       stringEntity.object3D.visible = index === _index;
+    });
+  },
+  showStrings: function() {
+    this.stringEntities.forEach((stringEntity) => {
+      //stringEntity.object3D.visible = true
+      stringEntity.setAttribute("visible", true)
     });
   },
   clearStrings: function () {
@@ -479,7 +561,7 @@ AFRAME.registerSystem("violin", {
   setText: function (text, value, color) {
     if (value) {
       text.setAttribute("value", value);
-      text.parentEl.object3D.visible = true;
+      text.parentEl.setAttribute("visible", "true")
       if (color) {
         text.setAttribute("color", color);
       }
@@ -487,11 +569,11 @@ AFRAME.registerSystem("violin", {
   },
   clearText: function (text) {
     text.setAttribute("value", "");
-    text.parentEl.object3D.visible = false;
+    text.parentEl.setAttribute("visible", "false")
   },
 
   setPitchText: function (value) {
-    this.setText(this.data.pitchText, value);
+      this.setText(this.data.pitchText, value);
     if (value) {
       this.clearPitchText();
     }
@@ -503,7 +585,7 @@ AFRAME.registerSystem("violin", {
     }
   },
   setOffsetText: function (value, color) {
-    this.setText(this.data.offsetText, value, color);
+      this.setText(this.data.offsetText, value, color);
     if (value) {
       this.clearOffsetText();
     }
@@ -585,11 +667,62 @@ AFRAME.registerSystem("violin", {
     return this.frequency.toMidi();
   },
 
+  updateHighlightedSongNote: function (index, isOffset = false) {
+    let newSongNoteIndex = this.songNoteIndex;
+    if (isOffset) {
+      newSongNoteIndex += index;
+    } else {
+      if (index >= 0 && index < this.songNotes.length) {
+        newSongNoteIndex = index;
+      }
+    }
+
+    newSongNoteIndex %= this.songNotes.length;
+    newSongNoteIndex = THREE.MathUtils.clamp(
+      newSongNoteIndex,
+      0,
+      this.songNotes.length - 1
+    );
+
+    if (this.songNoteIndex != newSongNoteIndex) {
+      this.songNoteIndex = newSongNoteIndex;
+      this.highlightedSongNote = this.songNotes[this.songNoteIndex];
+      console.log("song note index", this.songNoteIndex, this.highlightedSongNote.toNote());
+      this.highlightSongNote();
+    }
+  },
+  highlightSongNote: function () {
+    const fingering =
+      this.noteToFingerings[this.highlightedSongNote.toNote()][0];
+    if (fingering) {
+      console.log(fingering);
+      const { stringIndex, fingerIndex } = fingering;
+      this.fingerEntities.forEach((fingerEntity, index) => {
+        const visible = index == stringIndex;
+        if (visible) {
+          fingerEntity.object3D.position.y =
+            fingerIndex == 0? 0: this.fretEntities[fingerIndex-1].object3D.position.y;
+        }
+        fingerEntity.object3D.visible = visible;
+      });
+    } else {
+      console.log(
+        "no fingering found for note",
+        this.highlightedSongNote.toNote()
+      );
+    }
+  },
+  clearSongNotes: function () {
+    this.fingerEntities.forEach((fingerEntity, index) => {
+      fingerEntity.object3D.visible = false;
+    });
+  },
+
   onGripDown: function () {
-    this.data.violin.object3D.visible = true;
+    this.violinModelEntity.object3D.visible = true;
   },
   onGripUp: function () {
-    this.data.violin.object3D.visible = false;
+    this.violinModelEntity.object3D.visible = false;
   },
 
   onTriggerDown: function () {

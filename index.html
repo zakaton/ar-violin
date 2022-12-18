@@ -94,7 +94,7 @@
               id="offsetText"
               value="+50%"
               color="red"
-              material="shader: flat;"
+              _material="shader: flat;"
               position="0 0 0"
               align="right"
             ></a-text>
@@ -118,10 +118,10 @@
       >
         <a-entity
           id="violin"
-          gltf-model="#violinModel"
           position="0 0 0"
-          scale="8 8 8"
+          _scale="8 8 8"
         >
+          <a-entity id="violinModelEntity" gltf-model="#violinModel"></a-entity>
           <a-entity
             data-knob="0"
             visible="false"
@@ -172,56 +172,79 @@
           </a-entity>
 
           <a-entity
-            visible="false"
-            data-string="0"
             position="-0.43601 0.06637 0.00903"
             rotation="0.000 -1.700 96.857"
           >
-            <a-sphere visible="false" data-finger="0" color="black" radius="0.004"></a-sphere>
+            <a-sphere
+              visible="false"
+              data-finger="0"
+              color="yellow"
+              radius="0.003"
+            ></a-sphere>
             <a-cylinder
-              color="red"
+              visible="false"
+              data-string="0"
+              color="yellow"
               radius="0.001"
               height="0.340"
               position="0 -0.168 0"
             ></a-cylinder>
           </a-entity>
+
           <a-entity
-            visible="false"
-            data-string="1"
             position="-0.43601 0.06637 0.00312"
             rotation="-0.068 -0.785 97.453"
           >
-            <a-sphere visible="false" data-finger="1" color="black" radius="0.004"></a-sphere>
+            <a-sphere
+              visible="false"
+              data-finger="1"
+              color="green"
+              radius="0.003"
+            ></a-sphere>
             <a-cylinder
-              color="red"
+              data-string="1"
+              visible="false"
+              color="green"
               radius="0.001"
               height="0.340"
               position="0 -0.168 0"
             ></a-cylinder>
           </a-entity>
+
           <a-entity
-            visible="false"
-            data-string="2"
             position="-0.43601 0.06637 -0.0024"
             rotation="0.019 0.163 97.514"
           >
-            <a-sphere visible="false" data-finger="2" color="black" radius="0.004"></a-sphere>
+            <a-sphere
+              visible="false"
+              data-finger="2"
+              color="blue"
+              radius="0.003"
+            ></a-sphere>
             <a-cylinder
-              color="red"
+              visible="false"
+              data-string="2"
+              color="blue"
               radius="0.001"
               height="0.340"
               position="0 -0.168 0"
             ></a-cylinder>
           </a-entity>
+
           <a-entity
-            visible="false"
-            data-string="3"
             position="-0.43601 0.06637 -0.0075"
             rotation="-0.057 1.181 96.930"
           >
-            <a-sphere visible="false" data-finger="3" color="black" radius="0.004"></a-sphere>
+            <a-sphere
+              visible="false"
+              data-finger="3"
+              color="purple"
+              radius="p.003"
+            ></a-sphere>
             <a-cylinder
-              color="red"
+              visible="false"
+              data-string="3"
+              color="purple"
               radius="0.001"
               height="0.340"
               position="0 -0.168 0"

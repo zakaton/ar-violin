@@ -1,7 +1,6 @@
+test positioning
+  offset positioning/rotation
 test tuning
-  test direction
+  fix text issue
 test fingering
-  display how off the fingering is
 test song
-  pitchToClosestFingering
-  setSphereFromPitch (color previous sphere then hide it)
