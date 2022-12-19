@@ -1,4 +1,8 @@
-test positioning
-test tuning
-test fingering
-test song
+show HZ and offset for songs
+
+practice song
+
+demo
+  align violin
+  tune violin
+  play song

@@ -14,6 +14,7 @@ AFRAME.registerSystem("violin", {
     noteText: { type: "selector" },
     offsetThreshold: { type: "number", default: 0.1 },
     pitchThreshold: { type: "number", default: 30 },
+    bindViolinToHand: { type: "boolean", default: false },
   },
   init: function () {
     window.violin = this;
@@ -247,7 +248,6 @@ AFRAME.registerSystem("violin", {
         this.enablePitchDetector();
         this.hideFrets();
         this.updateHighlightedSongNote(0, false, true);
-        this.clearStrings();
         break;
     }
 
@@ -309,13 +309,19 @@ AFRAME.registerSystem("violin", {
     if (violinFretPositions) {
       violinFretPositions = JSON.parse(violinFretPositions);
       this.fretEntities.forEach((fretEntity, index) => {
-        fretEntity.object3D.position.y = Number(violinFretPositions[index]);
+        fretEntity.addEventListener("loaded", () => {
+          fretEntity.object3D.position.y = Number(violinFretPositions[index]);
+        });
       });
     }
     console.log("loaded fret positions from localstorage");
   },
 
   updateViolinPositionAndRotation: function () {
+    if (!this.loadedPosition || !this.loadedRotation) {
+      return;
+    }
+
     if (this._resetPositionFlag) {
       this.initialOtherHandPosition = this.otherHand.object3D.position.clone();
       this.initialOtherHandQuaternionInverse =
@@ -325,7 +331,7 @@ AFRAME.registerSystem("violin", {
 
       if (this.otherHandQuaternionDifference) {
         if (this.previousOtherHandQuaternionDifference) {
-          this.previousOtherHandQuaternionDifference.multiply(
+          this.previousOtherHandQuaternionDifference.premultiply(
             this.otherHandQuaternionDifference
           );
         } else {
@@ -338,7 +344,10 @@ AFRAME.registerSystem("violin", {
     } else {
       this.handQuaternionInverse =
         this.handQuaternionInverse || new THREE.Quaternion();
-      this.handQuaternionInverse.copy(this.hand.object3D.quaternion).invert();
+
+      if (this.bindViolinToHand) {
+        this.handQuaternionInverse.copy(this.hand.object3D.quaternion).invert();
+      }
 
       this.data.violin.object3D.position.subVectors(
         this.otherHand.object3D.position,
@@ -359,7 +368,7 @@ AFRAME.registerSystem("violin", {
         this.handQuaternionInverse,
         this.otherHandQuaternionDifference
       );
-
+      //return;
       if (this.previousOtherHandQuaternionDifference) {
         this.data.violin.object3D.quaternion.multiply(
           this.previousOtherHandQuaternionDifference
@@ -378,9 +387,11 @@ AFRAME.registerSystem("violin", {
     let violinPosition = localStorage.violinPosition;
     if (violinPosition) {
       violinPosition = JSON.parse(violinPosition);
-      this.data.violin.object3D.position.fromArray(violinPosition);
+      this.data.violin.setAttribute("position", violinPosition.join(" "));
+      //this.data.violin.object3D.position.fromArray(violinPosition);
     }
     console.log("loaded position from localstorage");
+    this.loadedPosition = true;
   },
   saveRotationToLocalStorage: function () {
     localStorage.violinRotation = JSON.stringify(
@@ -395,6 +406,7 @@ AFRAME.registerSystem("violin", {
       this.data.violin.object3D.quaternion.fromArray(violinRotation);
     }
     console.log("loaded rotation from localstorage");
+    this.loadedRotation = true;
   },
 
   enableMicrophone: async function () {
@@ -424,8 +436,8 @@ AFRAME.registerSystem("violin", {
   },
 
   getPitchAndVolume: function () {
-    let pitch, volume, positions;
-    let pitchValue, noteValue, offsetValue, offsetColor;
+    let pitch, volume, positions, midi;
+    let pitchValue, noteValue, noteColor, offsetValue, offsetColor;
 
     let value;
     switch (this.mode) {
@@ -438,17 +450,18 @@ AFRAME.registerSystem("violin", {
         if (pitch) {
           //console.log("pitch", pitch);
           let note, offset;
+
           switch (this.mode) {
             case "tune":
             case "fingers":
               {
-                pitchValue = `${Math.round(pitch)}Hz`;
-
                 note = this.pitchToNote(pitch);
                 noteValue = note;
 
+                pitchValue = `${Math.round(pitch)}Hz`;
+
                 const fingerIndex =
-                  this.mode == "tune" ? 0 : this.highlightedFretIndex;
+                  this.mode == "tune" ? 0 : this.highlightedFretIndex + 1;
                 const closestStringIndex = this.getClosestStringIndex(
                   pitch,
                   fingerIndex
@@ -456,7 +469,7 @@ AFRAME.registerSystem("violin", {
                 const closestStringFrequency =
                   this.stringFrequencies[closestStringIndex][fingerIndex];
 
-                const midi = this.pitchToMidi(pitch);
+                midi = this.pitchToMidi(pitch);
                 offset = this.getPitchOffset(pitch);
                 const midiOffset = closestStringFrequency.toMidi() - midi;
                 offset += midiOffset;
@@ -481,8 +494,25 @@ AFRAME.registerSystem("violin", {
               note = this.pitchToNote(pitch);
               noteValue = note;
 
-              if (note == this.highlightedSongNote.toNote()) {
-                console.log("played right note")
+              pitchValue = `${Math.round(pitch)}Hz`;
+
+              midi = this.pitchToMidi(pitch);
+              offset = this.getPitchOffset(pitch);
+              const midiOffset = this.highlightedSongNote.toMidi() - midi;
+              offset += midiOffset;
+              offsetValue = `${offset > 0 ? "+" : "-"}${Math.round(
+                Math.abs(offset) * 100
+              )}%`;
+              if (Math.abs(offset) > this.data.offsetThreshold) {
+                offsetColor = offset > 0 ? "red" : "blue";
+              } else {
+                offsetColor = "green";
+              }
+
+              const isRightNote = note == this.highlightedSongNote.toNote();
+              noteColor = isRightNote ? "green" : "red";
+              if (isRightNote) {
+                console.log("played right note");
                 this.updateHighlightedSongNote(1, true);
               }
               break;
@@ -492,19 +522,21 @@ AFRAME.registerSystem("violin", {
     }
 
     this.setPitchText(pitchValue);
-    this.setNoteText(noteValue);
+    this.setNoteText(noteValue, noteColor);
     this.setOffsetText(offsetValue, offsetColor);
   },
 
   highlightString: function (index) {
+    console.log("highlighting string", index);
     this.stringEntities.forEach((stringEntity, _index) => {
-      stringEntity.object3D.visible = index === _index;
+      //stringEntity.object3D.visible = index === _index;
+      stringEntity.setAttribute("opacity", index === _index ? 1 : 0.6);
     });
   },
   showStrings: function () {
     this.stringEntities.forEach((stringEntity) => {
-      stringEntity.object3D.visible = true
-      stringEntity.setAttribute("visible", true);
+      //stringEntity.object3D.visible = true
+      stringEntity.setAttribute("opacity", 1);
     });
   },
   clearStrings: function () {
@@ -602,8 +634,8 @@ AFRAME.registerSystem("violin", {
       this.clearPitchText();
     }
   },
-  setNoteText: function (value) {
-    this.setText(this.data.noteText, value);
+  setNoteText: function (value, color) {
+    this.setText(this.data.noteText, value, color);
     if (value) {
       this.clearNoteText();
     }
@@ -691,7 +723,11 @@ AFRAME.registerSystem("violin", {
     return this.frequency.toMidi();
   },
 
-  updateHighlightedSongNote: function (index, isOffset = false, override = false) {
+  updateHighlightedSongNote: function (
+    index,
+    isOffset = false,
+    override = false
+  ) {
     let newSongNoteIndex = this.songNoteIndex;
     if (isOffset) {
       newSongNoteIndex += index;
@@ -726,7 +762,7 @@ AFRAME.registerSystem("violin", {
       console.log(fingering);
       const { stringIndex, fingerIndex } = fingering;
       this.fingerEntities.forEach((fingerEntity, index) => {
-        const visible = index == stringIndex;
+        const visible = fingerIndex !== 0 && index == stringIndex;
         if (visible) {
           fingerEntity.object3D.position.y =
             fingerIndex == 0
@@ -734,7 +770,8 @@ AFRAME.registerSystem("violin", {
               : this.fretEntities[fingerIndex - 1].object3D.position.y;
         }
         fingerEntity.object3D.visible = visible;
-        this.highlightString(stringIndex)
+
+        this.highlightString(stringIndex);
       });
     } else {
       console.log(
