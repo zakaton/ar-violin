@@ -636,7 +636,7 @@ AFRAME.registerSystem("violin", {
   },
   setNoteText: function (value, color) {
     this.setText(this.data.noteText, value, color);
-    if (value) {
+    if (value && this.mode != "song") {
       this.clearNoteText();
     }
   },
