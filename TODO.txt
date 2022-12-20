@@ -1,8 +1,0 @@
-test song
-
-practice song
-
-demo
-  align violin
-  tune violin
-  play song

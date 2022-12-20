@@ -491,7 +491,10 @@ AFRAME.registerSystem("violin", {
 
               break;
             case "song":
+              
               note = this.pitchToNote(pitch);
+              
+              /*
               noteValue = note;
 
               pitchValue = `${Math.round(pitch)}Hz`;
@@ -508,9 +511,10 @@ AFRAME.registerSystem("violin", {
               } else {
                 offsetColor = "green";
               }
+              */
 
               const isRightNote = note == this.highlightedSongNote.toNote();
-              noteColor = isRightNote ? "green" : "red";
+              //noteColor = isRightNote ? "green" : "red";
               if (isRightNote) {
                 console.log("played right note");
                 this.updateHighlightedSongNote(1, true);
@@ -802,6 +806,9 @@ AFRAME.registerSystem("violin", {
         break;
       case "fingers":
         this.updateHighlightedFretIndex(1);
+        break;
+      case "song":
+        this.updateHighlightedSongNote(0, false, true);
         break;
     }
   },
