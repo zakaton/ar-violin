@@ -1,7 +1,0 @@
-get pitch offset
-pitch to position
-violin model
-align model
-pitch detection https://glitch.com/edit/#!/pink-trombone-editor?path=index.html%3A2113%3A39
-tune
-play sequence
